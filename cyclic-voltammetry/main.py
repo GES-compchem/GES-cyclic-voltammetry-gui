@@ -5,9 +5,10 @@ from plotly.subplots import make_subplots
 
 from io import StringIO, BytesIO
 from tempfile import NamedTemporaryFile as tmp
-from typing import Dict, Tuple
+from typing import Dict, List
 
 from core.bytestream_tools import BytesStreamManager
+from core.data_structures import CVExperiment, Trace
 from echemsuite.cyclicvoltammetry.read_input import CyclicVoltammetry
 
 
@@ -17,10 +18,10 @@ st.set_page_config(layout="wide")
 # Initialize the session state
 if "experiments" not in st.session_state:
     st.session_state["experiments"] = {}
+    st.session_state["plot_data"] = {}
 
-experiments: Dict[str, Tuple[CyclicVoltammetry, float, float]] = st.session_state[
-    "experiments"
-]
+experiments: Dict[str, CVExperiment] = st.session_state["experiments"]
+plotdata: Dict[str, List[Trace]] = st.session_state["plot_data"]
 
 
 st.title("Cyclic voltammetry viewer")
@@ -29,19 +30,19 @@ with st.form("File upload form", clear_on_submit=True):
 
     col1, col2, col3 = st.columns(3)
 
+    # Set the name of the experiment to be loaded
     with col1:
-        # Set the name of the experiment to be loaded
         default = "experiment_{}".format(len(experiments))
         experiment_name = st.text_input("Define the experiment name", value=default)
 
+    # Set the area of the electrode
     with col2:
-        # Set the area of the electrode
         area = st.number_input(
             "Set the area of the electrode in cm²", min_value=1e-6, value=1.0
         )
 
+    # Set the potential shift
     with col3:
-        # Set the potential shift
         vref = st.number_input(
             "Set the potential of the reference electrode (from S.H.E.)", value=0.0
         )
@@ -75,65 +76,230 @@ if loaded and submitted and experiment_name != "":
 
         # Read the temporary file and load the experiment in the session state
         cv = CyclicVoltammetry(file.name)
-        experiments[experiment_name] = (cv, area, vref)
+        experiments[experiment_name] = CVExperiment(cv, area, vref)
+
 
 if experiments != {}:
 
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns([3, 1])
 
     with col1:
-        apply_area = st.checkbox("Apply normalization by area", value=False)
+        name = st.text_input("Select the name of the plot", value="")
+
+    if name in plotdata.keys():
+        st.warning(f"The plot `{name}` already exists, select another name")
 
     with col2:
-        apply_shift = st.checkbox("Apply shift to the potential", value=False)
+        st.write("")
+        st.write("")
+        apply = st.button(
+            "Create",
+            disabled=True if name in plotdata.keys() or name == "" else False,
+        )
 
-    fig = make_subplots(cols=1, rows=1)
+    if apply:
+        plotdata[name] = []
+        st.experimental_rerun()
 
-    for name, (cv, area, vref) in experiments.items():
+if plotdata != {}:
 
-        for index in range(cv.settings["n_cycles"]):
+    tabs = st.tabs([name for name in plotdata.keys()])
 
-            voltage, current = cv[index]["Vf"], cv[index]["Im"]
+    for index, (tab, pname) in enumerate(zip(tabs, plotdata.keys())):
 
-            if type(voltage) == np.float64:
-                continue
+        with tab:
 
-            x = [V - vref for V in voltage] if apply_shift else voltage
-            y = [I / area for I in current] if apply_area else current
+            st.markdown(f"## {pname}")
 
-            fig.add_trace(
-                go.Scatter(
-                    x=x,
-                    y=y,
-                    name=f"{name} {index}",
-                ),
-                row=1,
-                col=1,
-            )
+            with st.expander("Trace selector"):
 
-    fig.update_xaxes(
-        showline=True,
-        linecolor="black",
-        gridwidth=1,
-        gridcolor="#DDDDDD",
-        title_font={"size": 32},
-    )
+                col1, col2 = st.columns([1, 3])
 
-    fig.update_yaxes(
-        showline=True,
-        linecolor="black",
-        gridwidth=1,
-        gridcolor="#DDDDDD",
-        title_font={"size": 32},
-    )
+                with col1:
+                    mode = st.radio(
+                        "Select operation mode:",
+                        ["Add new", "Edit existing"],
+                        key=f"mode_{index}",
+                    )
 
-    fig.update_layout(
-        xaxis_title = "V vs S.H.E." if apply_shift else "V vs Ref.",
-        yaxis_title = "I (A/cm²)" if apply_area else "I (A)",
-        plot_bgcolor="#FFFFFF",
-        height=800,
-        width=None,
-        font=dict(size=28),
-    )
+                with col2:
 
-    st.plotly_chart(fig, use_container_width=True)
+                    label_list = [trace.name for trace in plotdata[pname]]
+
+                    if mode == "Add new":
+                        expname = st.selectbox(
+                            "Select experiment:",
+                            [name for name in experiments.keys()],
+                            key=f"expname_{index}",
+                        )
+
+                        experiment = experiments[expname]
+                        cycles = [
+                            df for df in experiment.data if type(df["Vf"]) != np.float64
+                        ]
+
+                        excluded_values = [
+                            trace.original_number
+                            for trace in plotdata[pname]
+                            if trace.original_experiment == expname
+                        ]
+
+                        available_values = [
+                            i for i in range(len(cycles)) if i not in excluded_values
+                        ]
+
+                        tid = st.selectbox(
+                            "Select cycle number:",
+                            available_values,
+                            key=f"trace_id_{index}",
+                        )
+
+                        label = st.text_input(
+                            "Select the name of the trace:",
+                            value=f"{expname} / Cycle {tid}",
+                            key=f"trace_name_{index}",
+                        )
+
+                        if label in label_list:
+                            st.warning(f"WARNING: The label `{label}` is already in use")
+
+                        linestyle = st.selectbox(
+                            "Select the line style:",
+                            ["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"],
+                            key=f"linestyle_{index}",
+                        )
+
+                        color = st.color_picker(
+                            "Select the color of the trace:",
+                            key=f"color_{index}",
+                        )
+
+                        apply = st.button(
+                            "Apply",
+                            disabled=True
+                            if label == "" or label in label_list or tid is None
+                            else False,
+                            key=f"apply_{index}",
+                        )
+
+                        if apply:
+
+                            voltage = cycles[tid]["Vf"]
+                            current = cycles[tid]["Im"]
+
+                            newtrace = Trace(
+                                label, voltage, current, color, linestyle, expname, tid
+                            )
+                            plotdata[pname].append(newtrace)
+                            st.experimental_rerun()
+
+                    elif mode == "Edit existing":
+
+                        tname = st.selectbox("Select the trace to edit:", label_list)
+                        trace_index = label_list.index(tname)
+
+                        label = st.text_input(
+                            "Select the new name of the trace:",
+                            value=tname,
+                            key=f"modify_trace_name_{index}",
+                        )
+
+                        if label in label_list and label != tname:
+                            st.warning(f"WARNING: The label `{label}` is already in use")
+
+                        linestyle = st.selectbox(
+                            "Select the line style:",
+                            ["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"],
+                            key=f"modify_linestyle_{index}",
+                        )
+
+                        color = st.color_picker(
+                            "Select the color of the trace:",
+                            value=plotdata[pname][trace_index].color,
+                            key=f"modify_color_{index}",
+                        )
+
+                        apply = st.button(
+                            "Apply",
+                            disabled=True
+                            if label == "" or (label in label_list and label != tname)
+                            else False,
+                            key=f"modify_apply_{index}",
+                        )
+
+                        if apply:
+                            old = plotdata[pname][trace_index]
+                            newtrace = Trace(
+                                label,
+                                old.voltage,
+                                old.current,
+                                color,
+                                linestyle,
+                                old.original_experiment,
+                                old.original_number,
+                            )
+                            plotdata[pname][trace_index] = newtrace
+                            st.experimental_rerun()
+
+            col1, col2 = st.columns([3, 1])
+
+            with col2:
+                st.write("### Scale values")
+                apply_area = st.checkbox(
+                    "Apply normalization by area", value=False, key=f"scale_by_area_{index}"
+                )
+                apply_shift = st.checkbox(
+                    "Apply shift to the potential", value=False, key=f"shift_vref_{index}"
+                )
+
+            with col1:
+
+                fig = make_subplots(cols=1, rows=1)
+
+                for trace in plotdata[pname]:
+
+                    voltage, current = trace.voltage, trace.current
+
+                    vref = experiments[trace.original_experiment].vref
+                    area = experiments[trace.original_experiment].area
+
+                    x = [V - vref for V in voltage] if apply_shift else voltage
+                    y = [I / area for I in current] if apply_area else current
+
+                    fig.add_trace(
+                        go.Scatter(
+                            x=x,
+                            y=y,
+                            name=trace.name,
+                            line=dict(color=trace.color, dash=trace.linestyle),
+                        ),
+                        row=1,
+                        col=1,
+                    )
+
+                fig.update_xaxes(
+                    showline=True,
+                    linecolor="black",
+                    gridwidth=1,
+                    gridcolor="#DDDDDD",
+                    title_font={"size": 32},
+                )
+
+                fig.update_yaxes(
+                    showline=True,
+                    linecolor="black",
+                    gridwidth=1,
+                    gridcolor="#DDDDDD",
+                    title_font={"size": 32},
+                )
+
+                fig.update_layout(
+                    xaxis_title="V vs S.H.E." if apply_shift else "V vs Ref.",
+                    yaxis_title="I (A/cm²)" if apply_area else "I (A)",
+                    plot_bgcolor="#FFFFFF",
+                    height=800,
+                    width=800,
+                    font=dict(size=28),
+                )
+
+                st.plotly_chart(fig, use_container_width=True)
