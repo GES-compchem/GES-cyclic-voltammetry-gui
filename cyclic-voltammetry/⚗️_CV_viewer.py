@@ -173,7 +173,7 @@ if plotdata != {}:
                         key=f"mode_{index}",
                     )
 
-                    clearall = st.button("🧹 Remove all")
+                    clearall = st.button("🧹 Remove all", key=f"remove_all_{index}")
 
                 if clearall:
                     plotdata[pname] = []
