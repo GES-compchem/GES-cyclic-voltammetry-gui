@@ -154,24 +154,27 @@ if plotdata != {}:
                             key=f"trace_ids_selector_{index}",
                         )
 
-                        buffer = deepcopy(plotdata[pname])
+                        removed = [idx for idx in last_selection if idx not in trace_ids]
+                        for r in removed:
+                            for idx, trace in enumerate(plotdata[pname]):
+                                if (
+                                    trace.original_experiment == experiment_name
+                                    and trace.original_number == r
+                                ):
+                                    del plotdata[pname][idx]
+                                    break
+                        
+                        added = [idx for idx in trace_ids if idx not in last_selection]
+                        for added_trace in added:
 
-                        plotdata[pname] = [
-                            trace
-                            for trace in buffer
-                            if trace.original_experiment != experiment_name
-                        ]
-
-                        for trace_id in trace_ids:
-
-                            voltage = cycles[trace_id]["Vf"]
-                            current = cycles[trace_id]["Im"]
+                            voltage = cycles[added_trace]["Vf"]
+                            current = cycles[added_trace]["Im"]
 
                             color_id = 0
                             for _name, _experiment in experiments.items():
 
                                 if _name == experiment_name:
-                                    color_id += trace_id
+                                    color_id += added_trace
                                     break
 
                                 else:
@@ -183,65 +186,79 @@ if plotdata != {}:
                                     color_id += len(cycles)
 
                             newtrace = Trace(
-                                f"{experiment_name} / Cycle {trace_id}",
+                                f"{experiment_name} / Cycle {added_trace}",
                                 voltage,
                                 current,
                                 get_plotly_color(color_id),
                                 "solid",
                                 experiment_name,
-                                trace_id,
+                                added_trace,
                             )
 
                             plotdata[pname].append(newtrace)
 
-
                     elif mode == "Edit single trace":
 
-                        tname = st.selectbox("Select the trace to edit:", label_list)
-                        trace_index = label_list.index(tname)
-
-                        label = st.text_input(
-                            "Select the new name of the trace:",
-                            value=tname,
-                            key=f"modify_trace_name_{index}",
-                        )
-
-                        if label in label_list and label != tname:
-                            st.warning(f"WARNING: The label `{label}` is already in use")
-
-                        linestyle = st.selectbox(
-                            "Select the line style:",
-                            ["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"],
-                            key=f"modify_linestyle_{index}",
-                        )
-
-                        color = st.color_picker(
-                            "Select the color of the trace:",
-                            value=plotdata[pname][trace_index].color,
-                            key=f"modify_color_{index}",
-                        )
-
-                        apply = st.button(
-                            "Apply",
-                            disabled=True
-                            if label == "" or (label in label_list and label != tname)
-                            else False,
-                            key=f"modify_apply_{index}",
-                        )
-
-                        if apply:
-                            old = plotdata[pname][trace_index]
-                            newtrace = Trace(
-                                label,
-                                old.voltage,
-                                old.current,
-                                color,
-                                linestyle,
-                                old.original_experiment,
-                                old.original_number,
+                        if len(label_list) == 0:
+                            st.info(
+                                "Please add at least one trace to the plot to edit a trace"
                             )
-                            plotdata[pname][trace_index] = newtrace
-                            st.experimental_rerun()
+
+                        else:
+                            tname = st.selectbox("Select the trace to edit:", label_list)
+                            trace_index = label_list.index(tname)
+
+                            label = st.text_input(
+                                "Select the new name of the trace:",
+                                value=tname,
+                                key=f"modify_trace_name_{index}",
+                            )
+
+                            if label in label_list and label != tname:
+                                st.warning(
+                                    f"WARNING: The label `{label}` is already in use"
+                                )
+
+                            linestyle = st.selectbox(
+                                "Select the line style:",
+                                [
+                                    "solid",
+                                    "dot",
+                                    "dash",
+                                    "longdash",
+                                    "dashdot",
+                                    "longdashdot",
+                                ],
+                                key=f"modify_linestyle_{index}",
+                            )
+
+                            color = st.color_picker(
+                                "Select the color of the trace:",
+                                value=plotdata[pname][trace_index].color,
+                                key=f"modify_color_{index}",
+                            )
+
+                            apply = st.button(
+                                "Apply",
+                                disabled=True
+                                if label == "" or (label in label_list and label != tname)
+                                else False,
+                                key=f"modify_apply_{index}",
+                            )
+
+                            if apply:
+                                old = plotdata[pname][trace_index]
+                                newtrace = Trace(
+                                    label,
+                                    old.voltage,
+                                    old.current,
+                                    color,
+                                    linestyle,
+                                    old.original_experiment,
+                                    old.original_number,
+                                )
+                                plotdata[pname][trace_index] = newtrace
+                                st.experimental_rerun()
 
             col1, col2 = st.columns([3, 1])
 
