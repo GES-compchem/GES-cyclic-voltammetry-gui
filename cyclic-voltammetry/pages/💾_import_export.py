@@ -17,7 +17,7 @@ def generate_session_state_model(keys: List[str]):
 
 def save_session_state():
     bytestream = BytesIO()
-    buffer = generate_session_state_model(["experiments", "plot_data, plot_settings"])
+    buffer = generate_session_state_model(["experiments", "plot_data", "plot_settings"])
     pickle.dump(buffer, bytestream, protocol=pickle.HIGHEST_PROTOCOL)
     bytestream.seek(0)
     return bytestream
