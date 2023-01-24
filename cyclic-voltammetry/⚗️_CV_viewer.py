@@ -171,6 +171,12 @@ if plotdata != {}:
                         key=f"mode_{index}",
                     )
 
+                    clearall = st.button("🧹 Remove all")
+                
+                if clearall:
+                    plotdata[pname] = []
+                    st.experimental_rerun()
+
                 with col2:
 
                     label_list = [trace.name for trace in plotdata[pname]]
