@@ -77,10 +77,36 @@ if loaded and submitted and experiment_name != "":
 
         # Read the temporary file and load the experiment in the session state
         cv = CyclicVoltammetry(file.name)
-        experiments[experiment_name] = CVExperiment(cv, area, vref)
+        experiments[experiment_name] = CVExperiment(cv, area, vref, loaded.name)
 
 
 if experiments != {}:
+
+    with st.expander("📋 Experiment information", expanded=False):
+        
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.write("#### Experiment name")
+        
+        with col2:
+            st.write("#### Filename")
+        
+        with col3:
+            st.write("#### Number of cycles")
+
+        for name, experiment in experiments.items():
+
+            with col1:
+                st.write(name)
+            
+            with col2:
+                st.write(experiment.filename)
+            
+            with col3:
+                cycles = [df for df in experiment.data if type(df["Vf"]) != np.float64]
+                st.write(len(cycles))
+
 
     col1, col2 = st.columns([3, 1])
 

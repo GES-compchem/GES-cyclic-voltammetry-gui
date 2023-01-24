@@ -7,6 +7,7 @@ class CVExperiment:
     data: CyclicVoltammetry
     area: float
     vref: float
+    filename: str
 
 
 @dataclass
