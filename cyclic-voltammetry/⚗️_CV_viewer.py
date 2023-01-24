@@ -9,6 +9,7 @@ from typing import Dict, List
 
 from core.bytestream_tools import BytesStreamManager
 from core.data_structures import CVExperiment, Trace
+from core.colors import get_plotly_color
 from echemsuite.cyclicvoltammetry.read_input import CyclicVoltammetry
 
 
@@ -171,6 +172,7 @@ if plotdata != {}:
 
                         color = st.color_picker(
                             "Select the color of the trace:",
+                            value=get_plotly_color(len(label_list)),
                             key=f"color_{index}",
                         )
 
