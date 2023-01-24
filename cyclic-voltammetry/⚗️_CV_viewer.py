@@ -83,15 +83,15 @@ if loaded and submitted and experiment_name != "":
 if experiments != {}:
 
     with st.expander("📋 Experiment information", expanded=False):
-        
+
         col1, col2, col3 = st.columns(3)
 
         with col1:
             st.write("#### Experiment name")
-        
+
         with col2:
             st.write("#### Filename")
-        
+
         with col3:
             st.write("#### Number of cycles")
 
@@ -99,14 +99,13 @@ if experiments != {}:
 
             with col1:
                 st.write(name)
-            
+
             with col2:
                 st.write(experiment.filename)
-            
+
             with col3:
                 cycles = [df for df in experiment.data if type(df["Vf"]) != np.float64]
                 st.write(len(cycles))
-
 
     col1, col2 = st.columns([3, 1])
 
@@ -172,7 +171,7 @@ if plotdata != {}:
                     )
 
                     clearall = st.button("🧹 Remove all")
-                
+
                 if clearall:
                     plotdata[pname] = []
                     st.experimental_rerun()
@@ -312,6 +311,9 @@ if plotdata != {}:
                 apply_shift = st.checkbox(
                     "Apply shift to the potential", value=False, key=f"shift_vref_{index}"
                 )
+                show_markers = st.checkbox(
+                    "Add markers to data-point", value=False, key=f"marker_selector_{index}"
+                )
 
             with col1:
 
@@ -333,6 +335,7 @@ if plotdata != {}:
                             y=y,
                             name=trace.name,
                             line=dict(color=trace.color, dash=trace.linestyle),
+                            mode="lines+markers" if show_markers else "lines",
                         ),
                         row=1,
                         col=1,
