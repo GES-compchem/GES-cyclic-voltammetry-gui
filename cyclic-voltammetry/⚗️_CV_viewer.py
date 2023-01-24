@@ -6,10 +6,11 @@ from plotly.subplots import make_subplots
 from io import StringIO, BytesIO
 from tempfile import NamedTemporaryFile as tmp
 from typing import Dict, List
+from copy import deepcopy
 
 from core.bytestream_tools import BytesStreamManager
 from core.data_structures import CVExperiment, Trace
-from core.colors import get_plotly_color
+from core.utils import get_plotly_color, force_update_once
 from echemsuite.cyclicvoltammetry.read_input import CyclicVoltammetry
 
 
@@ -119,7 +120,7 @@ if plotdata != {}:
                 with col1:
                     mode = st.radio(
                         "Select operation mode:",
-                        ["Add new", "Edit existing"],
+                        ["Add/remove traces", "Edit single trace"],
                         key=f"mode_{index}",
                     )
 
@@ -127,75 +128,74 @@ if plotdata != {}:
 
                     label_list = [trace.name for trace in plotdata[pname]]
 
-                    if mode == "Add new":
-                        expname = st.selectbox(
+                    if mode == "Add/remove traces":
+
+                        experiment_name = st.selectbox(
                             "Select experiment:",
                             [name for name in experiments.keys()],
-                            key=f"expname_{index}",
+                            key=f"experiment_name_{index}",
                         )
 
-                        experiment = experiments[expname]
+                        experiment = experiments[experiment_name]
                         cycles = [
                             df for df in experiment.data if type(df["Vf"]) != np.float64
                         ]
 
-                        excluded_values = [
+                        last_selection = [
                             trace.original_number
                             for trace in plotdata[pname]
-                            if trace.original_experiment == expname
+                            if trace.original_experiment == experiment_name
                         ]
 
-                        available_values = [
-                            i for i in range(len(cycles)) if i not in excluded_values
+                        trace_ids = st.multiselect(
+                            "Select the cycles to show:",
+                            [i for i, _ in enumerate(cycles)],
+                            default=last_selection,
+                            key=f"trace_ids_selector_{index}",
+                        )
+
+                        buffer = deepcopy(plotdata[pname])
+
+                        plotdata[pname] = [
+                            trace
+                            for trace in buffer
+                            if trace.original_experiment != experiment_name
                         ]
 
-                        tid = st.selectbox(
-                            "Select cycle number:",
-                            available_values,
-                            key=f"trace_id_{index}",
-                        )
+                        for trace_id in trace_ids:
 
-                        label = st.text_input(
-                            "Select the name of the trace:",
-                            value=f"{expname} / Cycle {tid}",
-                            key=f"trace_name_{index}",
-                        )
+                            voltage = cycles[trace_id]["Vf"]
+                            current = cycles[trace_id]["Im"]
 
-                        if label in label_list:
-                            st.warning(f"WARNING: The label `{label}` is already in use")
+                            color_id = 0
+                            for _name, _experiment in experiments.items():
 
-                        linestyle = st.selectbox(
-                            "Select the line style:",
-                            ["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"],
-                            key=f"linestyle_{index}",
-                        )
+                                if _name == experiment_name:
+                                    color_id += trace_id
+                                    break
 
-                        color = st.color_picker(
-                            "Select the color of the trace:",
-                            value=get_plotly_color(len(label_list)),
-                            key=f"color_{index}",
-                        )
-
-                        apply = st.button(
-                            "Apply",
-                            disabled=True
-                            if label == "" or label in label_list or tid is None
-                            else False,
-                            key=f"apply_{index}",
-                        )
-
-                        if apply:
-
-                            voltage = cycles[tid]["Vf"]
-                            current = cycles[tid]["Im"]
+                                else:
+                                    cycles = [
+                                        df
+                                        for df in _experiment.data
+                                        if type(df["Vf"]) != np.float64
+                                    ]
+                                    color_id += len(cycles)
 
                             newtrace = Trace(
-                                label, voltage, current, color, linestyle, expname, tid
+                                f"{experiment_name} / Cycle {trace_id}",
+                                voltage,
+                                current,
+                                get_plotly_color(color_id),
+                                "solid",
+                                experiment_name,
+                                trace_id,
                             )
-                            plotdata[pname].append(newtrace)
-                            st.experimental_rerun()
 
-                    elif mode == "Edit existing":
+                            plotdata[pname].append(newtrace)
+
+
+                    elif mode == "Edit single trace":
 
                         tname = st.selectbox("Select the trace to edit:", label_list)
                         trace_index = label_list.index(tname)
@@ -304,4 +304,6 @@ if plotdata != {}:
                     font=dict(size=28),
                 )
 
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True, theme=None)
+
+force_update_once()
