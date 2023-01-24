@@ -10,7 +10,7 @@ from copy import deepcopy
 
 from core.bytestream_tools import BytesStreamManager
 from core.data_structures import CVExperiment, Trace
-from core.utils import get_plotly_color, force_update_once
+from core.utils import get_trace_color, force_update_once
 from echemsuite.cyclicvoltammetry.read_input import CyclicVoltammetry
 
 
@@ -101,6 +101,28 @@ if experiments != {}:
 
     if apply:
         plotdata[name] = []
+
+        for _name, _experiment in experiments.items():
+
+            cycles = [df for df in _experiment.data if type(df["Vf"]) != np.float64]
+
+            for tid, cycle in enumerate(cycles):
+
+                voltage = cycle["Vf"]
+                current = cycle["Im"]
+
+                newtrace = Trace(
+                    f"{_name} / Cycle {tid}",
+                    voltage,
+                    current,
+                    get_trace_color(_name, tid),
+                    "solid",
+                    _name,
+                    tid,
+                )
+
+                plotdata[name].append(newtrace)
+
         st.experimental_rerun()
 
 if plotdata != {}:
@@ -163,33 +185,18 @@ if plotdata != {}:
                                 ):
                                     del plotdata[pname][idx]
                                     break
-                        
+
                         added = [idx for idx in trace_ids if idx not in last_selection]
                         for added_trace in added:
 
                             voltage = cycles[added_trace]["Vf"]
                             current = cycles[added_trace]["Im"]
 
-                            color_id = 0
-                            for _name, _experiment in experiments.items():
-
-                                if _name == experiment_name:
-                                    color_id += added_trace
-                                    break
-
-                                else:
-                                    cycles = [
-                                        df
-                                        for df in _experiment.data
-                                        if type(df["Vf"]) != np.float64
-                                    ]
-                                    color_id += len(cycles)
-
                             newtrace = Trace(
                                 f"{experiment_name} / Cycle {added_trace}",
                                 voltage,
                                 current,
-                                get_plotly_color(color_id),
+                                get_trace_color(experiment_name, added_trace),
                                 "solid",
                                 experiment_name,
                                 added_trace,
