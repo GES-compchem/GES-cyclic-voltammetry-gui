@@ -6,7 +6,6 @@ from plotly.subplots import make_subplots
 from io import StringIO, BytesIO
 from tempfile import NamedTemporaryFile as tmp
 from typing import Dict, List
-from copy import deepcopy
 
 from core.bytestream_tools import BytesStreamManager
 from core.data_structures import CVExperiment, Trace
@@ -212,7 +211,11 @@ if plotdata != {}:
                             )
 
                         else:
-                            tname = st.selectbox("Select the trace to edit:", label_list)
+                            tname = st.selectbox(
+                                "Select the trace to edit:",
+                                label_list,
+                                key=f"trace_to_edit_selestor_{index}",
+                            )
                             trace_index = label_list.index(tname)
 
                             label = st.text_input(

@@ -7,6 +7,7 @@ def get_plotly_color(index: int) -> str:
     return color_list[index % len(color_list)]
 
 def get_trace_color(experiment_name: str, track_id: int):
+
     color_id = 0
     for _name, _experiment in st.session_state["experiments"].items():
 
@@ -21,6 +22,8 @@ def get_trace_color(experiment_name: str, track_id: int):
                 if type(df["Vf"]) != np.float64
             ]
             color_id += len(cycles)
+
+    return get_plotly_color(color_id)
 
 
 def force_update_once():
