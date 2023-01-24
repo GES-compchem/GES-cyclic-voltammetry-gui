@@ -8,7 +8,7 @@ from tempfile import NamedTemporaryFile as tmp
 from typing import Dict, List
 
 from core.bytestream_tools import BytesStreamManager
-from core.data_structures import CVExperiment, Trace
+from core.data_structures import CVExperiment, Trace, PlotSettings
 from core.utils import get_trace_color, force_update_once
 from echemsuite.cyclicvoltammetry.read_input import CyclicVoltammetry
 
@@ -20,9 +20,11 @@ st.set_page_config(layout="wide")
 if "experiments" not in st.session_state:
     st.session_state["experiments"] = {}
     st.session_state["plot_data"] = {}
+    st.session_state["plot_settings"] = {}
 
 experiments: Dict[str, CVExperiment] = st.session_state["experiments"]
 plotdata: Dict[str, List[Trace]] = st.session_state["plot_data"]
+plotsettings: Dict[str, PlotSettings] = st.session_state["plot_settings"]
 
 
 st.title("Cyclic voltammetry viewer")
@@ -125,6 +127,7 @@ if experiments != {}:
 
     if apply:
         plotdata[name] = []
+        plotsettings[name] = PlotSettings()
 
         for _name, _experiment in experiments.items():
 
@@ -301,18 +304,82 @@ if plotdata != {}:
                                 plotdata[pname][trace_index] = newtrace
                                 st.experimental_rerun()
 
+            settings = plotsettings[pname]
+
             col1, col2 = st.columns([3, 1])
 
             with col2:
+
                 st.write("### Scale values")
-                apply_area = st.checkbox(
-                    "Apply normalization by area", value=False, key=f"scale_by_area_{index}"
+
+                settings.normalize_by_area = st.checkbox(
+                    "Apply normalization by area",
+                    value=settings.normalize_by_area,
+                    key=f"scale_by_area_{index}",
                 )
-                apply_shift = st.checkbox(
-                    "Apply shift to the potential", value=False, key=f"shift_vref_{index}"
+
+                settings.shift_with_vref = st.checkbox(
+                    "Apply shift to the potential",
+                    value=settings.shift_with_vref,
+                    key=f"shift_vref_{index}",
                 )
-                show_markers = st.checkbox(
-                    "Add markers to data-point", value=False, key=f"marker_selector_{index}"
+
+                st.write("### Graph options")
+
+                settings.show_markers = st.checkbox(
+                    "Add markers to data-point",
+                    value=settings.show_markers,
+                    key=f"marker_selector_{index}",
+                )
+
+                settings.set_user_defined_scale = st.checkbox(
+                    "Set user defined plot range",
+                    value=settings.set_user_defined_scale,
+                    key=f"range_scale_selector_{index}",
+                )
+
+                settings.vmin = float(
+                    st.number_input(
+                        "Set minimum value of the voltage scale (V)",
+                        value=settings.vmin,
+                        max_value=settings.vmax,
+                        disabled=not settings.set_user_defined_scale,
+                        step=1e-9,
+                        key=f"vmin_selector_{index}",
+                    )
+                )
+
+                settings.vmax = float(
+                    st.number_input(
+                        "Set maximum value of the voltage scale (V)",
+                        value=settings.vmax,
+                        min_value=settings.vmin,
+                        disabled=not settings.set_user_defined_scale,
+                        step=1e-9,
+                        key=f"vmax_selector_{index}",
+                    )
+                )
+
+                settings.imin = float(
+                    st.number_input(
+                        "Set minimum value of the current scale (mA)",
+                        value=settings.imin,
+                        max_value=settings.imax,
+                        disabled=not settings.set_user_defined_scale,
+                        step=1e-9,
+                        key=f"imin_selector_{index}",
+                    )
+                )
+
+                settings.imax = float(
+                    st.number_input(
+                        "Set maximum value of the current scale (mA)",
+                        value=settings.imax,
+                        min_value=settings.imin,
+                        disabled=not settings.set_user_defined_scale,
+                        step=1e-9,
+                        key=f"imax_selector_{index}",
+                    )
                 )
 
             with col1:
@@ -326,8 +393,12 @@ if plotdata != {}:
                     vref = experiments[trace.original_experiment].vref
                     area = experiments[trace.original_experiment].area
 
-                    x = [V - vref for V in voltage] if apply_shift else voltage
-                    y = [I / area for I in current] if apply_area else current
+                    x = [V - vref for V in voltage] if settings.shift_with_vref else voltage
+                    y = (
+                        [I / area for I in current]
+                        if settings.normalize_by_area
+                        else current
+                    )
 
                     fig.add_trace(
                         go.Scatter(
@@ -335,7 +406,7 @@ if plotdata != {}:
                             y=y,
                             name=trace.name,
                             line=dict(color=trace.color, dash=trace.linestyle),
-                            mode="lines+markers" if show_markers else "lines",
+                            mode="lines+markers" if settings.show_markers else "lines",
                         ),
                         row=1,
                         col=1,
@@ -347,6 +418,9 @@ if plotdata != {}:
                     gridwidth=1,
                     gridcolor="#DDDDDD",
                     title_font={"size": 32},
+                    range=[settings.vmin, settings.vmax]
+                    if settings.set_user_defined_scale
+                    else None,
                 )
 
                 fig.update_yaxes(
@@ -355,11 +429,14 @@ if plotdata != {}:
                     gridwidth=1,
                     gridcolor="#DDDDDD",
                     title_font={"size": 32},
+                    range=[settings.imin / 1000, settings.imax / 1000]
+                    if settings.set_user_defined_scale
+                    else None,
                 )
 
                 fig.update_layout(
-                    xaxis_title="V vs S.H.E." if apply_shift else "V vs Ref.",
-                    yaxis_title="I (A/cm²)" if apply_area else "I (A)",
+                    xaxis_title="V vs S.H.E." if settings.shift_with_vref else "V vs Ref.",
+                    yaxis_title="I (A/cm²)" if settings.normalize_by_area else "I (A)",
                     plot_bgcolor="#FFFFFF",
                     height=800,
                     width=800,

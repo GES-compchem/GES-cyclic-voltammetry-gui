@@ -19,3 +19,15 @@ class Trace:
     linestyle: str
     original_experiment: str
     original_number: int
+
+
+@dataclass
+class PlotSettings:
+    normalize_by_area: bool = False
+    shift_with_vref: bool = False
+    show_markers: bool = False
+    set_user_defined_scale: bool = False
+    vmin: float = -2.0
+    vmax: float = 2.0
+    imin: float = -1.0
+    imax: float = 1.0
