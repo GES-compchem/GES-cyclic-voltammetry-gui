@@ -421,6 +421,9 @@ if plotdata != {}:
                     range=[settings.vmin, settings.vmax]
                     if settings.set_user_defined_scale
                     else None,
+                    zeroline=False,
+                    mirror=True,
+                    automargin=True,
                 )
 
                 fig.update_yaxes(
@@ -432,17 +435,47 @@ if plotdata != {}:
                     range=[settings.imin / 1000, settings.imax / 1000]
                     if settings.set_user_defined_scale
                     else None,
+                    zeroline=False,
+                    mirror=True,
+                    automargin=True,
                 )
 
                 fig.update_layout(
                     xaxis_title="V vs S.H.E." if settings.shift_with_vref else "V vs Ref.",
                     yaxis_title="I (A/cm²)" if settings.normalize_by_area else "I (A)",
                     plot_bgcolor="#FFFFFF",
+                    legend=dict(
+                        yanchor="top",
+                        y=0.99,
+                        xanchor="left",
+                        x=0.01,
+                        bordercolor="Black",
+                        borderwidth=1,
+                        font=dict(size=18),
+                    ),
                     height=800,
                     width=800,
                     font=dict(size=28),
+                    margin=dict(l=120, r=50, t=50, b=120),
                 )
 
                 st.plotly_chart(fig, use_container_width=True, theme=None)
+
+            with col2:
+
+                st.markdown("### Download")
+
+                format = st.selectbox(
+                    "Select the format of the file",
+                    ["png", "jpeg", "svg", "pdf"],
+                    key=f"download_format_{index}",
+                )
+
+                st.download_button(
+                    "📥 Download plot",
+                    data=fig.to_image(format=format),
+                    file_name=f"{pname}.{format}",
+                    key=f"download_button_{index}",
+                )
 
 force_update_once()
