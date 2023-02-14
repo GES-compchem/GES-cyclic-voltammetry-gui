@@ -454,7 +454,7 @@ if plotdata != {}:
                         font=dict(size=18),
                     ),
                     height=800,
-                    width=800,
+                    width=1100,
                     font=dict(size=28),
                     margin=dict(l=120, r=50, t=50, b=120),
                 )
