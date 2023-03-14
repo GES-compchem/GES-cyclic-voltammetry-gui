@@ -86,15 +86,21 @@ if experiments != {}:
 
     with st.expander("📋 Experiment information", expanded=False):
 
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4, col5 = st.columns(5)
 
         with col1:
             st.write("#### Experiment name")
 
         with col2:
             st.write("#### Filename")
-
+        
         with col3:
+            st.write("#### Vref (V)")
+
+        with col4:
+            st.write("#### Area (cm^2)")
+        
+        with col5:
             st.write("#### Number of cycles")
 
         for name, experiment in experiments.items():
@@ -104,8 +110,14 @@ if experiments != {}:
 
             with col2:
                 st.write(experiment.filename)
-
+            
             with col3:
+                st.write(experiment.vref)
+        
+            with col4:
+                st.write(experiment.area)
+
+            with col5:
                 cycles = [df for df in experiment.data if type(df["Vf"]) != np.float64]
                 st.write(len(cycles))
 
@@ -393,7 +405,7 @@ if plotdata != {}:
                     vref = experiments[trace.original_experiment].vref
                     area = experiments[trace.original_experiment].area
 
-                    x = [V - vref for V in voltage] if settings.shift_with_vref else voltage
+                    x = [V + vref for V in voltage] if settings.shift_with_vref else voltage
                     y = (
                         [I / area for I in current]
                         if settings.normalize_by_area
